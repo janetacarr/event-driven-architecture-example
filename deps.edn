@@ -1,0 +1,53 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        org.clojure/clojurescript {:mvn/version "1.11.60"}
+        org.clojure/core.async {:mvn/version "1.6.673"}
+        metosin/reitit {:mvn/version "0.5.15"}
+        metosin/reitit-schema {:mvn/version "0.5.15"}
+        hiccup/hiccup {:mvn/version "2.0.0-alpha2"}
+        selmer/selmer {:mvn/version "1.12.44"}
+        ring/ring {:mvn/version "1.8.2"}
+        ring/ring-json {:mvn/version "0.5.1"}
+        ring-cors/ring-cors {:mvn/version "0.1.13"}
+        ring-middleware-accept/ring-middleware-accept {:mvn/version "2.0.3"}
+        camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.2"}
+        environ/environ {:mvn/version "1.2.0"}
+        danlentz/clj-uuid {:mvn/version "0.1.9"}
+        com.github.seancorfield/next.jdbc {:mvn/version "1.2.737"}
+        integrant/integrant {:mvn/version "0.8.0"}
+        spootnik/signal {:mvn/version "0.2.4"}
+        com.taoensso/timbre {:mvn/version "5.2.1"}
+        ring-oauth2/ring-oauth2 {:mvn/version "0.2.0"}
+        ring/ring-defaults {:mvn/version "0.3.3"}
+        integrant/repl {:mvn/version "0.3.2"}
+        org.postgresql/postgresql {:mvn/version "42.3.1"}
+        com.cognitect/transit-clj {:mvn/version "1.0.329"}
+        buddy/buddy-auth {:mvn/version "3.0.323"}
+        buddy/buddy-sign {:mvn/version "3.4.333"}
+        buddy/buddy-core {:mvn/version "1.10.413"}
+        buddy/buddy-hashers {:mvn/version "1.8.158"}
+        metosin/ring-http-response {:mvn/version "0.9.3"}
+        cheshire/cheshire {:mvn/version "5.11.0"}
+        clj-http/clj-http {:mvn/version "3.12.3"
+                           :exclusions [org.apache.logging.log4j/log4j-api
+                                        org.apache.logging.log4j/log4j-core
+                                        org.apache.logging.log4j/log4j-1.2-api]}}
+ :aliases
+ {:run-m {:main-opts ["-m" "janetacarr.event-driven-architecture-example"]}
+  :run-x {:ns-default janetacarr.event-driven-architecture-example
+          :exec-fn greet
+          :exec-args {:name "Clojure"}}
+  :dev {:extra-deps {cider/cider-nrepl {:mvn/version "0.26.0"}
+                     com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.1"}}
+        :main-opts ["-m" "nrepl.cmdline"
+                    "--middleware" "[cider.nrepl/cider-middleware]"]}
+  :build {:deps {io.github.seancorfield/build-clj
+                 {:git/tag "v0.8.2" :git/sha "0ffdb4c"
+                  ;; since we're building an app uberjar, we do not
+                  ;; need deps-deploy for clojars.org deployment:
+                  :deps/root "slim"}}
+          :ns-default build}
+  :test {:extra-paths ["test"]
+         :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
+                      io.github.cognitect-labs/test-runner
+                      {:git/tag "v0.5.0" :git/sha "48c3c67"}}}}}
