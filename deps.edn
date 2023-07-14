@@ -28,6 +28,7 @@
         buddy/buddy-hashers {:mvn/version "1.8.158"}
         metosin/ring-http-response {:mvn/version "0.9.3"}
         cheshire/cheshire {:mvn/version "5.11.0"}
+        compojure/compojure {:mvn/version "1.7.0"}
         clj-http/clj-http {:mvn/version "3.12.3"
                            :exclusions [org.apache.logging.log4j/log4j-api
                                         org.apache.logging.log4j/log4j-core

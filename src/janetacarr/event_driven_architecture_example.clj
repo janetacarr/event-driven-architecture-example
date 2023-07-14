@@ -1,24 +1,11 @@
 (ns janetacarr.event-driven-architecture-example
   (:require [clojure.core.async :as a]
+            [compojure.core :refer :all]
+            [compojure.route :as route]
+            [cheshire.core :as json]
+            [taoensso.timbre :as log]
             [environ.core :refer [env]]
-            [reitit.ring :as ring]
-            [reitit.ring.coercion :as rrc]
-            [reitit.coercion.malli :as rcm]
-            [reitit.ring.middleware.muuntaja :as muuntaja]
-            [reitit.ring.middleware.parameters :as parameters]
-            [muuntaja.core :as m]
-            [ring.middleware.file :refer [wrap-file]]
-            [ring.middleware.cors :refer [wrap-cors]]
-            [ring.middleware.accept :refer [wrap-accept]]
-            [ring.middleware.content-type :refer [wrap-content-type]]
-            [ring.middleware.defaults :refer :all]
-            [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
-            [ring.middleware.oauth2 :refer [wrap-oauth2]]
-            [ring.middleware.params :refer [wrap-params]]
-            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
-            [ring.middleware.session :refer [wrap-session]]
             [ring.adapter.jetty :refer [run-jetty]]
-            [ring.middleware.reload :refer [wrap-reload]]
             [ring.util.response :refer [bad-request]])
   (:gen-class))
 
@@ -35,13 +22,31 @@
   [events-chan]
   (a/go-loop [event (a/<! events-chan)]
     ;; Do something with event
-    (println "Received payment" event)))
+    (log/info "Received payment" event)
+    (recur (a/<! events-chan))))
 
 (defn user-unsubscribed-consumer
   [events-chan]
   (a/go-loop [event (a/<! events-chan)]
     ;; Do something with event
-    (println "User unsubscribed" event)))
+    (log/info "User unsubscribed" event)
+    (recur (a/<! events-chan))))
+
+(defn ->event-deserializer
+  [publish-fn]
+  (fn event-deserializer
+    [event-chan]
+    (a/go-loop [event (a/<! event-chan)]
+      (try
+        (let [parsed-event (json/parse-string event true)]
+          (if (valid-event? parsed-event (:shared-secret env))
+            (publish-fn parsed-event)
+            (log/warn "Dropping unsigned event: " event)))
+        (catch Exception e
+          (log/error "Internal error processing event: "
+                     event
+                     (.getMessage e))))
+      (recur (a/<! event-chan)))))
 
 ;; This function will as an adapter for converting
 ;; from event bus events to consumer events.
@@ -56,7 +61,7 @@
     (a/sub publication topic consumer-chan)
     (consumer-fn consumer-chan)))
 
-(def event-bus (a/chan))
+(def event-bus (a/chan 2048))
 (def publication (a/pub event-bus :event-type))
 (def payments-consumer (setup-consumer payment-received-consumer
                                        publication
@@ -69,6 +74,10 @@
   [event]
   (a/go (a/>! event-bus event)))
 
+(def serializing-consumer-producer (setup-consumer (->event-deserializer publish-event)
+                                                   publication
+                                                   nil))
+
 ;; If we were to switch out the event-bus for
 ;; something more cloudy, like Kafka or AWS Kinesis,
 ;; chances are we'd have to use a different API
@@ -79,33 +88,15 @@
 (defn ->event-handler
   [publish-fn]
   (fn [req]
-    (let [{:keys [body-params]} req]
-      (if (valid-event? body-params (env :shared-secret))
-        (publish-fn (update body-params :event-name keyword))
+    (let [{:keys [body]} req]
+      (if body
+        (do (publish-fn (slurp body))
+            {:status 202})
         (bad-request)))))
 
-(def app
-  (ring/ring-handler
-   (ring/router
-    [""
-     ["/webhook" {:post {:no-doc true
-                         :summary ""
-                         :handler (->event-handler publish-event)
-                         :responses {200 [:any]
-                                     400 [:any]
-                                     500 [:any]}
-                         :parameters {:body [:map
-                                             [:event-type string?]]}}}]]
-    {:data {:muuntaja m/instance
-            :coercion rcm/coercion
-            :middleware [muuntaja/format-middleware
-                         rrc/coerce-exceptions-middleware
-                         rrc/coerce-request-middleware
-                         rrc/coerce-response-middleware]}})
-   (ring/routes
-    (ring/redirect-trailing-slash-handler {:method :strip})
-    (ring/create-default-handler))
-   {:middleware [[parameters/parameters-middleware]]}))
+;; Use compojure for brevity
+(defroutes app
+  (POST "/webhook" [req] (->event-handler publish-event)))
 
 (defn -main
   [& args]
